@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 )
 
@@ -61,7 +62,6 @@ func handleRequest(conn net.Conn) {
 			if room, ok := SyncRooms[clients[conn]]; ok {
 				if conn == room.Sender {
 					fmt.Println("Sending message to receiver")
-					room.Receiver.Write(message)
 				} else {
 					fmt.Println(string(message))
 				}
@@ -78,12 +78,12 @@ func watchForMessage(conn net.Conn, messageChannel chan []byte) {
 			log.Println("Client Connection closed.")
 			if room, ok := SyncRooms[clients[conn]]; ok {
 				if conn == room.Receiver {
-					room.Sender.Write([]byte("Receiver disconnected"))
+					room.Sender.Write([]byte(fmt.Sprintf("Receiver disconnected from %s", room.Code)))
 					SyncRooms[clients[conn]] = SyncRoom{Sender: room.Sender, Code: room.Code}
 					delete(clients, conn)
 				} else {
 					if room.Receiver != nil {
-						room.Receiver.Write([]byte("Sender disconnected"))
+						room.Receiver.Write([]byte(fmt.Sprintf("Sender disconnected from %s", room.Code)))
 						room.Receiver.Close()
 					}
 					delete(SyncRooms, clients[conn])
@@ -97,14 +97,12 @@ func watchForMessage(conn net.Conn, messageChannel chan []byte) {
 }
 
 func getUniqueRoomCode() string {
-	// return fmt.Sprintf("%d-%d-%d", rand.Intn(8999)+1000, rand.Intn(8999)+1000, rand.Intn(8999)+1000)
-	return "1234"
+	return fmt.Sprintf("%d-%d-%d", rand.Intn(8999)+1000, rand.Intn(8999)+1000, rand.Intn(8999)+1000)
 }
 
 func createNewSyncRoom(conn net.Conn) string {
 	newCode := getUniqueRoomCode()
 	_, ok := SyncRooms[newCode]
-	log.Printf("Creating room code `%s`", newCode)
 	for ok {
 		newCode = getUniqueRoomCode()
 		_, ok = SyncRooms[newCode]
@@ -112,7 +110,7 @@ func createNewSyncRoom(conn net.Conn) string {
 	}
 	SyncRooms[newCode] = SyncRoom{Sender: conn, Code: newCode}
 	clients[conn] = newCode
-	log.Println("Sender connected")
+	log.Printf("Sender connected to %s", newCode)
 	return newCode
 }
 
